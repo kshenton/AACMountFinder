@@ -127,9 +127,9 @@ for your wheelchair and AAC device combination.
 """)
 
 st.warning("""
-⚠️ Please note: The suggestions provided are based on general compatibility. The final solution may 
+⚠️ Please note: The suggestions provided are based on general compatibility. The required solution may 
 vary depending on factors such as:
-- Wheelchair customizations or modifications
+- Wheelchair customisations or modifications
 - Specific positioning requirements
 - User needs and preferences
 - Additional accessories on the wheelchair
