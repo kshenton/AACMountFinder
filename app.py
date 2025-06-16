@@ -27,10 +27,20 @@ def get_device_weight(aac_device_id: int) -> float:
 def display_component_info(component, component_type="Component"):
     """Helper function to display component information consistently"""
     st.write(f"**{component_type}:** {component[1]}")
-    if len(component) > 3:
-        st.write(component[3])
-    if len(component) > 4 and component[4]:
-        st.markdown(f"[More Info]({component[4]})")
+    
+    # Handle different component structures
+    if component_type == "Mount":
+        # Mounts have structure: (id, name, manufacturer, weight_capacity, description, url)
+        if len(component) > 4:
+            st.write(component[4])  # description
+        if len(component) > 5 and component[5]:
+            st.markdown(f"[More Info]({component[5]})")  # url
+    else:
+        # Clamps and Adaptors have structure: (id, name, manufacturer, description, url)
+        if len(component) > 3:
+            st.write(component[3])  # description
+        if len(component) > 4 and component[4]:
+            st.markdown(f"[More Info]({component[4]})")  # url
 
 def display_mount_solutions(recommendations, aac_device_id):
     """Display the mount solutions in organized sections"""
@@ -112,13 +122,13 @@ def display_mount_solutions(recommendations, aac_device_id):
             if other_rehadapt_mounts:
                 st.subheader("Rehadapt")
                 for mount in other_rehadapt_mounts:
-                    display_component_info(mount, mount[1])
+                    display_component_info(mount, "Mount")
                     st.write("")
                 
             if other_daessy_mounts:
                 st.subheader("Daessy")
                 for mount in other_daessy_mounts:
-                    display_component_info(mount, mount[1])
+                    display_component_info(mount, "Mount")
                     st.write("")
 
 def main():
