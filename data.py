@@ -82,21 +82,6 @@ def get_aac_device_by_make_model(make, model):
         conn.close()
 
 
-def get_device_eyegaze_status(device_id):
-    conn = get_db_connection()
-    if conn is None:
-        return None
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT eyegaze FROM aac_devices WHERE id = ?", (device_id,))
-        result = cursor.fetchone()
-        return result[0] if result else None
-    except sqlite3.Error as e:
-        logging.error(f"Failed to fetch eyegaze status: {e}")
-        return None
-    finally:
-        conn.close()
-
 
 def get_recommendations(wheelchair_id, aac_device_id, uses_eyegaze=False):
     conn = get_db_connection()
