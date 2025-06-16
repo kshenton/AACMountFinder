@@ -3,6 +3,8 @@
 import sqlite3
 import os
 import logging
+from typing import Dict, List, Tuple, Optional, Union
+from contextlib import contextmanager
 
 # -------------------------------
 # Logging setup
@@ -21,142 +23,158 @@ logging.basicConfig(
 # -------------------------------
 DB_PATH = os.path.join(os.path.dirname(__file__), "mounting_solutions.db")
 
+# -------------------------------
+# Constants for mount logic
+# -------------------------------
+class MountLogic:
+    """Centralized mount selection logic to avoid duplication"""
+    
+    @staticmethod
+    def get_rehadapt_mount_id(device_weight: float) -> int:
+        """Get Rehadapt mount ID based on device weight"""
+        if device_weight >= 2.6:
+            return 3
+        elif 1.6 <= device_weight <= 2.59:
+            return 1
+        elif 1.1 <= device_weight <= 1.59:
+            return 4
+        else:
+            return 6
+    
+    @staticmethod
+    def get_daessy_mount_id(device_weight: float) -> int:
+        """Get Daessy mount ID based on device weight"""
+        if device_weight >= 2.6:
+            return 7
+        else:
+            return 10
 
 # -------------------------------
 # DB Helpers
 # -------------------------------
+@contextmanager
 def get_db_connection():
+    """Context manager for database connections"""
+    conn = None
     try:
         conn = sqlite3.connect(DB_PATH)
         logging.info("Connected to database.")
-        return conn
+        yield conn
     except sqlite3.Error as e:
         logging.error(f"Database connection failed: {e}")
-        return None
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        if conn:
+            conn.close()
 
+def safe_sql_in_clause(ids: List[int]) -> Tuple[str, List[int]]:
+    """Safely create IN clause for SQL queries"""
+    if not ids:
+        return "id IN ()", []
+    placeholders = ','.join('?' * len(ids))
+    return f"id IN ({placeholders})", ids
 
-def get_all_wheelchairs():
-    conn = get_db_connection()
-    if conn is None:
-        return {}
+def get_all_wheelchairs() -> Dict[str, int]:
+    """Get all wheelchairs as a dict mapping model to ID"""
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, model FROM wheelchairs ORDER BY model")
-        results = cursor.fetchall()
-        return {row[1]: row[0] for row in results}
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, model FROM wheelchairs ORDER BY model")
+            results = cursor.fetchall()
+            return {row[1]: row[0] for row in results}
     except sqlite3.Error as e:
         logging.error(f"Failed to fetch wheelchairs: {e}")
         return {}
-    finally:
-        conn.close()
 
-
-def get_aac_devices():
-    conn = get_db_connection()
-    if conn is None:
-        return []
+def get_aac_devices() -> List[Tuple[str, str]]:
+    """Get all AAC devices as list of (make, model) tuples"""
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT make, model FROM aac_devices ORDER BY make, model")
-        return cursor.fetchall()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT make, model FROM aac_devices ORDER BY make, model")
+            return cursor.fetchall()
     except sqlite3.Error as e:
         logging.error(f"Failed to fetch AAC devices: {e}")
         return []
-    finally:
-        conn.close()
 
-
-def get_aac_device_by_make_model(make, model):
-    conn = get_db_connection()
-    if conn is None:
-        return None
+def get_aac_device_by_make_model(make: str, model: str) -> Optional[int]:
+    """Get AAC device ID by make and model"""
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM aac_devices WHERE make = ? AND model = ?", (make, model))
-        result = cursor.fetchone()
-        return result[0] if result else None
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM aac_devices WHERE make = ? AND model = ?", (make, model))
+            result = cursor.fetchone()
+            return result[0] if result else None
     except sqlite3.Error as e:
         logging.error(f"Failed to fetch AAC device by make/model: {e}")
         return None
-    finally:
-        conn.close()
 
-
-
-def get_recommendations(wheelchair_id, aac_device_id, uses_eyegaze=False):
-    conn = get_db_connection()
-    if conn is None:
-        return "Database connection failed."
-
+def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bool = False) -> Union[Dict, str]:
+    """Get mounting recommendations for wheelchair and AAC device combination"""
     try:
-        cursor = conn.cursor()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute("SELECT model, frame_clamps, mount_location FROM wheelchairs WHERE id = ?", (wheelchair_id,))
-        wheelchair = cursor.fetchone()
+            # Get wheelchair details
+            cursor.execute("SELECT model, frame_clamps, mount_location FROM wheelchairs WHERE id = ?", (wheelchair_id,))
+            wheelchair = cursor.fetchone()
 
-        cursor.execute("SELECT weight FROM aac_devices WHERE id = ?", (aac_device_id,))
-        aac_device = cursor.fetchone()
+            # Get AAC device details
+            cursor.execute("SELECT weight FROM aac_devices WHERE id = ?", (aac_device_id,))
+            aac_device = cursor.fetchone()
 
-        if not wheelchair or not aac_device:
-            return "Invalid wheelchair or AAC device selection."
+            if not wheelchair or not aac_device:
+                return "Invalid wheelchair or AAC device selection."
 
-        frame_clamp_ids = [int(id.strip()) for id in wheelchair[1].split(',')]
-        mount_location = wheelchair[2]
-        device_weight = aac_device[0]
+            frame_clamp_ids = [int(id.strip()) for id in wheelchair[1].split(',')]
+            mount_location = wheelchair[2]
+            device_weight = aac_device[0]
 
-        cursor.execute(
-            f"SELECT * FROM clamps WHERE id IN ({','.join('?' * len(frame_clamp_ids))})",
-            frame_clamp_ids
-        )
-        frame_clamps = cursor.fetchall()
+            # Get frame clamps
+            clamp_where, clamp_params = safe_sql_in_clause(frame_clamp_ids)
+            cursor.execute(f"SELECT * FROM clamps WHERE {clamp_where}", clamp_params)
+            frame_clamps = cursor.fetchall()
 
-        cursor.execute(
-            "SELECT * FROM mounts WHERE weight_capacity >= ? ORDER BY weight_capacity ASC",
-            (device_weight,)
-        )
-        all_mounts = cursor.fetchall()
+            # Get all suitable mounts by weight
+            cursor.execute(
+                "SELECT * FROM mounts WHERE weight_capacity >= ? ORDER BY weight_capacity ASC",
+                (device_weight,)
+            )
+            all_mounts = cursor.fetchall()
 
-        rehadapt_mount_id, daessy_mount_id = None, None
+            # Get primary mount IDs using centralized logic
+            rehadapt_mount_id = MountLogic.get_rehadapt_mount_id(device_weight)
+            daessy_mount_id = MountLogic.get_daessy_mount_id(device_weight)
+            primary_mount_ids = [rehadapt_mount_id, daessy_mount_id]
 
-        # Rehadapt weight bands
-        if device_weight >= 2.6:
-            rehadapt_mount_id = 3
-        elif 1.6 <= device_weight <= 2.59:
-            rehadapt_mount_id = 1
-        elif 1.1 <= device_weight <= 1.59:
-            rehadapt_mount_id = 4
-        else:
-            rehadapt_mount_id = 6
+            # Get primary mounts
+            primary_where, primary_params = safe_sql_in_clause(primary_mount_ids)
+            cursor.execute(f"SELECT * FROM mounts WHERE {primary_where}", primary_params)
+            primary_mounts = cursor.fetchall()
 
-        # Daessy weight bands
-        if device_weight >= 2.6:
-            daessy_mount_id = 7
-        else:
-            daessy_mount_id = 10
+            # Separate primary and other mounts
+            primary_mount_dict = {mount[0]: mount for mount in primary_mounts}
+            other_mounts = [m for m in all_mounts if m[0] not in primary_mount_dict]
+            mounts = list(primary_mount_dict.values()) + other_mounts
 
+            # Get adapter ring
+            cursor.execute("SELECT * FROM adaptors WHERE id = 1")
+            adapter_ring = cursor.fetchone()
 
-        cursor.execute(
-            f"SELECT * FROM mounts WHERE id IN ({','.join('?' * len(primary_mount_ids))})",
-            primary_mount_ids
-        )
-        primary_mounts = cursor.fetchall()
-
-        other_mounts = [m for m in all_mounts if m not in primary_mounts]
-        mounts = primary_mounts + other_mounts
-
-        cursor.execute("SELECT * FROM adaptors WHERE id = 1")
-        adapter_ring = cursor.fetchone()
-
-        return {
-            "frame_clamps": frame_clamps,
-            "mounts": mounts,
-            "adapter_ring": adapter_ring,
-            "mount_location": mount_location
-        }
+            return {
+                "frame_clamps": frame_clamps,
+                "mounts": mounts,
+                "adapter_ring": adapter_ring,
+                "mount_location": mount_location,
+                "device_weight": device_weight,
+                "primary_mount_ids": primary_mount_ids
+            }
 
     except sqlite3.Error as e:
         logging.error(f"Failed to get recommendations: {e}")
         return "Failed to retrieve recommendations due to a database error."
-
-    finally:
-        conn.close()
+    except Exception as e:
+        logging.error(f"Unexpected error in get_recommendations: {e}")
+        return "An unexpected error occurred while getting recommendations."
