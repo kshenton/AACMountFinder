@@ -104,7 +104,7 @@ for your wheelchair and AAC device combination.
 """)
 
 st.warning("""
-⚠️ Please note: The suggestions provided are based on general compatibility. The final solution may 
+⚠️ Please note: This app is intended to be used as a guide, and the suggestions provided are based on general compatibility. The final solution may 
 vary depending on factors such as:
 - Wheelchair customisations or modifications
 - Specific positioning requirements
