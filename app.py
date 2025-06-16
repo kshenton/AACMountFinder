@@ -218,7 +218,7 @@ if st.button("Find Solution"):
                 st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Other suitable mounts by supplier depending on device weight</p>", unsafe_allow_html=True)
                 with st.expander("Show/Hide Solutions"):
                     if len(rehadapt_mounts) > 1:
-                        st.subheader("Other Compatible Rehadapt Mounts")
+                        st.subheader("Rehadapt")
                         for mount in rehadapt_mounts[1:]:
                             st.write(f"**{mount[1]}**")
                             st.write(mount[4])
@@ -226,7 +226,7 @@ if st.button("Find Solution"):
                             st.write("")
                         
                     if len(daessy_mounts) > 1:
-                        st.subheader("Other Compatible Daessy Mounts")
+                        st.subheader("Daessy")
                         for mount in daessy_mounts[1:]:
                             st.write(f"**{mount[1]}**")
                             st.write(mount[4])
