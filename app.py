@@ -179,26 +179,6 @@ if st.button("Find Solution"):
                     st.write(mount[4])
                     st.markdown(f"[More Info]({mount[5]})")
 
-            # Other Compatible Solutions (full width)
-            if len(rehadapt_mounts) > 1 or len(daessy_mounts) > 1:
-                st.markdown("<h2 style='font-size: 24px;'>Other Compatible Solutions</h2>", unsafe_allow_html=True)
-                with st.expander("Show/Hide Solutions"):
-                    if len(rehadapt_mounts) > 1:
-                        st.subheader("Other Compatible Rehadapt Mounts")
-                        for mount in rehadapt_mounts[1:]:
-                            st.write(f"**{mount[1]}**")
-                            st.write(mount[4])
-                            st.markdown(f"[More Info]({mount[5]})")
-                            st.write("")
-                        
-                    if len(daessy_mounts) > 1:
-                        st.subheader("Other Compatible Daessy Mounts")
-                        for mount in daessy_mounts[1:]:
-                            st.write(f"**{mount[1]}**")
-                            st.write(mount[4])
-                            st.markdown(f"[More Info]({mount[5]})")
-                            st.write("")
-
             # Cross-manufacturer combinations
             if any(c[2].lower() == 'daessy' for c in recommendations["frame_clamps"]) and any(m[2].lower() == 'rehadapt' for m in recommendations["mounts"]):
                 st.markdown("<h2 style='font-size: 24px;'>Cross-Manufacturer Combinations</h2>", unsafe_allow_html=True)
@@ -216,9 +196,10 @@ if st.button("Find Solution"):
                                             if c[2].lower() == 'daessy']
                         
                     suitable_rehadapt_mounts = [m for m in rehadapt_mounts if 
-                                                (device_weight > 2.6 and m[0] == 3) or  # Heavy devices: ID 3
-                                                (1.5 <= device_weight <= 2.5 and m[0] == 1) or  # Medium devices: ID 1
-                                                (device_weight < 1.5 and m[0] == 4)]  # Light devices: ID 4
+                                                (device_weight >= 2.6 and m[0] == 3) or  # Heavy devices: ID 3
+                                                (1.6 <= device_weight <= 2.59 and m[0] == 1) or  # Standard devices: ID 1
+                                                (1.1 <= device_weight <= 1.59 and m[0] == 4) or  # Medium devices: ID 4
+                                                (device_weight < 1.09 and m[0] == 6)]  # Light devices: ID 6
                         
                     for clamp in suitable_daessy_clamps:
                         for mount in suitable_rehadapt_mounts:
@@ -230,3 +211,26 @@ if st.button("Find Solution"):
                                 st.write(adapter[3])
                                 st.markdown(f"[More Info]({adapter[4]})")
                                 st.write("")
+            
+            # Other Suitable Mounts (full width)
+            if len(rehadapt_mounts) > 1 or len(daessy_mounts) > 1:
+                st.markdown("<h2 style='font-size: 24px;'>Other Compatible Mounts (By weight)</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Other suitable mounts by supplier depending on device weight</p>", unsafe_allow_html=True)
+                with st.expander("Show/Hide Solutions"):
+                    if len(rehadapt_mounts) > 1:
+                        st.subheader("Other Compatible Rehadapt Mounts")
+                        for mount in rehadapt_mounts[1:]:
+                            st.write(f"**{mount[1]}**")
+                            st.write(mount[4])
+                            st.markdown(f"[More Info]({mount[5]})")
+                            st.write("")
+                        
+                    if len(daessy_mounts) > 1:
+                        st.subheader("Other Compatible Daessy Mounts")
+                        for mount in daessy_mounts[1:]:
+                            st.write(f"**{mount[1]}**")
+                            st.write(mount[4])
+                            st.markdown(f"[More Info]({mount[5]})")
+                            st.write("")
+
+            
