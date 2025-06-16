@@ -133,20 +133,22 @@ def get_recommendations(wheelchair_id, aac_device_id, uses_eyegaze=False):
 
         rehadapt_mount_id, daessy_mount_id = None, None
 
-        if device_weight > 2.6:
+        # Rehadapt weight bands
+        if device_weight >= 2.6:
             rehadapt_mount_id = 3
-            daessy_mount_id = 7
-        elif 1.5 <= device_weight <= 2.5:
+        elif 1.6 <= device_weight <= 2.59:
             rehadapt_mount_id = 1
-            daessy_mount_id = 10
-        else:
+        elif 1.1 <= device_weight <= 1.59:
             rehadapt_mount_id = 4
-
-        # ✅ NEW: order preference based on eye gaze flag
-        if uses_eyegaze:
-            primary_mount_ids = [id for id in [daessy_mount_id, rehadapt_mount_id] if id]
         else:
-            primary_mount_ids = [id for id in [rehadapt_mount_id, daessy_mount_id] if id]
+            rehadapt_mount_id = 6
+
+        # Daessy weight bands
+        if device_weight >= 2.6:
+            daessy_mount_id = 7
+        else:
+            daessy_mount_id = 10
+
 
         cursor.execute(
             f"SELECT * FROM mounts WHERE id IN ({','.join('?' * len(primary_mount_ids))})",
