@@ -202,6 +202,7 @@ if st.button("Find Solution"):
             # Cross-manufacturer combinations
             if any(c[2].lower() == 'daessy' for c in recommendations["frame_clamps"]) and any(m[2].lower() == 'rehadapt' for m in recommendations["mounts"]):
                 st.markdown("<h2 style='font-size: 24px;'>Cross-Manufacturer Combinations</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Allows for using a Daessy Clamp with Rehadapt Mount using M3D Adapter Ring</p>", unsafe_allow_html=True)
                 with st.expander("Show/Hide Combinations"):
                     st.write("**Note:** The following combinations require an adapter ring:")
                         
