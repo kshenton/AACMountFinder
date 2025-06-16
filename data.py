@@ -30,24 +30,43 @@ class MountLogic:
     """Centralized mount selection logic to avoid duplication"""
     
     @staticmethod
-    def get_rehadapt_mount_id(device_weight: float) -> int:
-        """Get Rehadapt mount ID based on device weight"""
-        if device_weight >= 2.6:
-            return 3
-        elif 1.6 <= device_weight <= 2.59:
-            return 1
-        elif 1.1 <= device_weight <= 1.59:
-            return 4
+    def get_rehadapt_mount_id(device_weight: float, left_hand_side: bool = False) -> int:
+        """Get Rehadapt mount ID based on device weight and mounting side"""
+        if left_hand_side:
+            # Use sturdy mounts with rotation lock for left-hand side
+            if device_weight >= 2.8:
+                return 3  # M3D Plus HD
+            elif 1.7 <= device_weight <= 2.79:
+                return 2 #M3D Quickshift Sturdy
+            else:
+                return 13  # H3D Short UDS Sturdy
         else:
-            return 6
+            # Standard right-hand side mounts
+            if device_weight >= 2.6:
+                return 3
+            elif 1.6 <= device_weight <= 2.59:
+                return 1
+            elif 1.1 <= device_weight <= 1.59:
+                return 4
+            else:
+                return 6
     
     @staticmethod
-    def get_daessy_mount_id(device_weight: float) -> int:
-        """Get Daessy mount ID based on device weight"""
+    def get_daessy_mount_id(device_weight: float, left_hand_side: bool = False) -> int:
+        """Get Daessy mount ID based on device weight and mounting side"""
+        # Daessy mounts are typically stable regardless of side due to their locking mechanism
         if device_weight >= 2.6:
             return 7
         else:
             return 10
+    
+    @staticmethod
+    def get_mount_recommendation_note(left_hand_side: bool) -> str:
+        """Get explanatory note about mount selection"""
+        if left_hand_side:
+            return "Left-hand side mounting detected - recommending sturdy mounts with rotation lock to prevent unwanted movement."
+        else:
+            return "Standard right-hand side mounting - flexible positioning options available."
 
 # -------------------------------
 # DB Helpers
@@ -111,7 +130,7 @@ def get_aac_device_by_make_model(make: str, model: str) -> Optional[int]:
         logging.error(f"Failed to fetch AAC device by make/model: {e}")
         return None
 
-def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bool = False) -> Union[Dict, str]:
+def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bool = False, left_hand_side: bool = False) -> Union[Dict, str]:
     """Get mounting recommendations for wheelchair and AAC device combination"""
     try:
         with get_db_connection() as conn:
@@ -145,8 +164,8 @@ def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bo
             all_mounts = cursor.fetchall()
 
             # Get primary mount IDs using centralized logic
-            rehadapt_mount_id = MountLogic.get_rehadapt_mount_id(device_weight)
-            daessy_mount_id = MountLogic.get_daessy_mount_id(device_weight)
+            rehadapt_mount_id = MountLogic.get_rehadapt_mount_id(device_weight, left_hand_side)
+            daessy_mount_id = MountLogic.get_daessy_mount_id(device_weight, left_hand_side)
             primary_mount_ids = [rehadapt_mount_id, daessy_mount_id]
 
             # Get primary mounts
@@ -169,7 +188,9 @@ def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bo
                 "adapter_ring": adapter_ring,
                 "mount_location": mount_location,
                 "device_weight": device_weight,
-                "primary_mount_ids": primary_mount_ids
+                "primary_mount_ids": primary_mount_ids,
+                "left_hand_side": left_hand_side,
+                "mount_note": MountLogic.get_mount_recommendation_note(left_hand_side)
             }
 
     except sqlite3.Error as e:

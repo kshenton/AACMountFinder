@@ -56,36 +56,49 @@ def display_mount_solutions(recommendations, aac_device_id):
     # Display mount location if available
     if recommendations.get("mount_location"):
         st.info(f"💡 **Suggested Mounting Location:** {recommendations['mount_location']}")
+    
+    # Display mounting side recommendation note
+    if recommendations.get("mount_note"):
+        side_color = "#17a2b8" if recommendations.get("left_hand_side") else "#28a745"
+        st.markdown(f"<p style='color: {side_color}; font-size: 14px; font-style: italic;'>ℹ️ {recommendations['mount_note']}</p>", unsafe_allow_html=True)
 
     # Rehadapt Solution
     if rehadapt_clamps and rehadapt_mounts:
         st.markdown("<h2 style='font-size: 24px;'>Suggested Rehadapt Solution</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Flexible positioning with quick-release system for easy adjustment</p>", unsafe_allow_html=True)
         
-        # Get the primary Rehadapt mount based on weight
-        primary_rehadapt_id = MountLogic.get_rehadapt_mount_id(device_weight)
-        primary_rehadapt_mount = next((m for m in rehadapt_mounts if m[0] == primary_rehadapt_id), rehadapt_mounts[0])
+        # Get the primary Rehadapt mount based on weight and side
+        primary_rehadapt_id = MountLogic.get_rehadapt_mount_id(device_weight, recommendations.get("left_hand_side", False))
+        primary_rehadapt_mount = next((m for m in rehadapt_mounts if m[0] == primary_rehadapt_id), rehadapt_mounts[0] if rehadapt_mounts else None)
         
         with st.expander("Show/Hide Solution"):
             st.write("Complete Rehadapt mounting solution:")
+            if recommendations.get("left_hand_side"):
+                st.markdown("*🔒 Sturdy mount with rotation lock recommended for left-hand side mounting*")
             clamp = rehadapt_clamps[0]
             display_component_info(clamp, "Inner Clamp")
-            display_component_info(primary_rehadapt_mount, "Mount")
+            if primary_rehadapt_mount:
+                display_component_info(primary_rehadapt_mount, "Mount")
+            else:
+                st.warning("No suitable Rehadapt mount found for the selected criteria.")
 
     # Daessy Solution
     if daessy_clamps and daessy_mounts:
         st.markdown("<h2 style='font-size: 24px;'>Suggested Daessy Solution</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Maximum stability with locked positioning for precise access methods such as Eyegaze</p>", unsafe_allow_html=True)
         
-        # Get the primary Daessy mount based on weight
-        primary_daessy_id = MountLogic.get_daessy_mount_id(device_weight)
-        primary_daessy_mount = next((m for m in daessy_mounts if m[0] == primary_daessy_id), daessy_mounts[0])
+        # Get the primary Daessy mount based on weight and side
+        primary_daessy_id = MountLogic.get_daessy_mount_id(device_weight, recommendations.get("left_hand_side", False))
+        primary_daessy_mount = next((m for m in daessy_mounts if m[0] == primary_daessy_id), daessy_mounts[0] if daessy_mounts else None)
         
         with st.expander("Show/Hide Solution"):
             st.write("Complete Daessy mounting solution:")
             clamp = daessy_clamps[0]
             display_component_info(clamp, "Inner Clamp")
-            display_component_info(primary_daessy_mount, "Mount")
+            if primary_daessy_mount:
+                display_component_info(primary_daessy_mount, "Mount")
+            else:
+                st.warning("No suitable Daessy mount found for the selected criteria.")
 
     # Cross-manufacturer combinations
     if daessy_clamps and rehadapt_mounts and recommendations.get("adapter_ring"):
@@ -96,7 +109,7 @@ def display_mount_solutions(recommendations, aac_device_id):
             st.write("**Note:** The following combinations require an adapter ring:")
             
             # Get the primary Rehadapt mount for cross-compatibility
-            primary_rehadapt_id = MountLogic.get_rehadapt_mount_id(device_weight)
+            primary_rehadapt_id = MountLogic.get_rehadapt_mount_id(device_weight, recommendations.get("left_hand_side", False))
             suitable_rehadapt_mount = next((m for m in rehadapt_mounts if m[0] == primary_rehadapt_id), None)
             
             if suitable_rehadapt_mount:
@@ -111,8 +124,8 @@ def display_mount_solutions(recommendations, aac_device_id):
                     st.write("")
 
     # Other Suitable Mounts
-    other_rehadapt_mounts = [m for m in rehadapt_mounts if m[0] != MountLogic.get_rehadapt_mount_id(device_weight)]
-    other_daessy_mounts = [m for m in daessy_mounts if m[0] != MountLogic.get_daessy_mount_id(device_weight)]
+    other_rehadapt_mounts = [m for m in rehadapt_mounts if m[0] != MountLogic.get_rehadapt_mount_id(device_weight, recommendations.get("left_hand_side", False))]
+    other_daessy_mounts = [m for m in daessy_mounts if m[0] != MountLogic.get_daessy_mount_id(device_weight, recommendations.get("left_hand_side", False))]
     
     if other_rehadapt_mounts or other_daessy_mounts:
         st.markdown("<h2 style='font-size: 24px;'>Other Compatible Mounts (By weight)</h2>", unsafe_allow_html=True)
@@ -186,6 +199,12 @@ def main():
             device[1] for device in aac_devices if device[0] == selected_make
         )))
         selected_model = st.selectbox("Select AAC Device Model", models)
+    
+    # Add left-hand side checkbox
+    left_hand_side = st.checkbox(
+        "Mounted left-hand side?", 
+        help="Check this if the device will be mounted on the left side of the wheelchair. This will recommend sturdy mounts with rotation lock to prevent unwanted movement."
+    )
 
     # Process selection
     if st.button("Find Solution"):
@@ -204,7 +223,7 @@ def main():
                 return
 
             # Get recommendations
-            recommendations = get_recommendations(wheelchair_id, aac_device_id)
+            recommendations = get_recommendations(wheelchair_id, aac_device_id, left_hand_side=left_hand_side)
 
             if isinstance(recommendations, str):
                 st.error(recommendations)
