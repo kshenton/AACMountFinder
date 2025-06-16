@@ -167,7 +167,7 @@ if st.button("Find Solution"):
             # Daessy Solution (full width)
             if daessy_clamps and daessy_mounts:
                 st.markdown("<h2 style='font-size: 24px;'>Suggested Daessy Solution</h2>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Maximum stability with locked positioning for precise access methods</p>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Maximum stability with locked positioning for precise access methods such as Eyegaze</p>", unsafe_allow_html=True)
                 with st.expander("Show/Hide Solution"):
                     st.write("Complete Daessy mounting solution:")
                     clamp = daessy_clamps[0]
