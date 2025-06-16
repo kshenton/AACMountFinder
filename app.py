@@ -94,6 +94,8 @@ def get_recommendations(wheelchair_id: int, aac_device_id: int) -> Dict:
         "mount_location": mount_location
     }
 
+# Streamlit app setup
+
 st.markdown("<h1 style='text-align: center;'>AAC Mount Finder</h1>", unsafe_allow_html=True)
 
 st.write("""
@@ -137,4 +139,93 @@ if st.button("Find Solution"):
         if isinstance(recommendations, str):
             st.error(recommendations)
         else:
-            st.write(recommendations)  # Replace with your detailed display logic
+            # Get the manufacturer-specific components
+            rehadapt_clamps = [c for c in recommendations["frame_clamps"] if c[2].lower() == 'rehadapt']
+            rehadapt_mounts = [m for m in recommendations["mounts"] if m[2].lower() == 'rehadapt']
+            daessy_clamps = [c for c in recommendations["frame_clamps"] if c[2].lower() == 'daessy']
+            daessy_mounts = [m for m in recommendations["mounts"] if m[2].lower() == 'daessy']
+
+            # Display mount location if available
+            if recommendations.get("mount_location"):
+                st.info(f"💡 **Suggested Mounting Location:** {recommendations['mount_location']}")
+
+            # Rehadapt Solution (full width)
+            if rehadapt_clamps and rehadapt_mounts:
+                st.markdown("<h2 style='font-size: 24px;'>Suggested Rehadapt Solution</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Flexible positioning with quick-release system for easy adjustment</p>", unsafe_allow_html=True)
+                with st.expander("Show/Hide Solution"):
+                    st.write("Complete Rehadapt mounting solution:")
+                    clamp = rehadapt_clamps[0]
+                    mount = rehadapt_mounts[0]
+                    st.write(f"**Inner Clamp:** {clamp[1]}")
+                    st.write(clamp[3])
+                    st.markdown(f"[More Info]({clamp[4]})")
+                    st.write(f"**Mount:** {mount[1]}")
+                    st.write(mount[4])
+                    st.markdown(f"[More Info]({mount[5]})")
+
+            # Daessy Solution (full width)
+            if daessy_clamps and daessy_mounts:
+                st.markdown("<h2 style='font-size: 24px;'>Suggested Daessy Solution</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #28a745; font-size: 16px;'>+ Maximum stability with locked positioning for precise access methods</p>", unsafe_allow_html=True)
+                with st.expander("Show/Hide Solution"):
+                    st.write("Complete Daessy mounting solution:")
+                    clamp = daessy_clamps[0]
+                    mount = daessy_mounts[0]
+                    st.write(f"**Inner Clamp:** {clamp[1]}")
+                    st.write(clamp[3])
+                    st.markdown(f"[More Info]({clamp[4]})")
+                    st.write(f"**Mount:** {mount[1]}")
+                    st.write(mount[4])
+                    st.markdown(f"[More Info]({mount[5]})")
+
+            # Other Compatible Solutions (full width)
+            if len(rehadapt_mounts) > 1 or len(daessy_mounts) > 1:
+                st.markdown("<h2 style='font-size: 24px;'>Other Compatible Solutions</h2>", unsafe_allow_html=True)
+                with st.expander("Show/Hide Solutions"):
+                    if len(rehadapt_mounts) > 1:
+                        st.subheader("Other Compatible Rehadapt Mounts")
+                        for mount in rehadapt_mounts[1:]:
+                            st.write(f"**{mount[1]}**")
+                            st.write(mount[4])
+                            st.markdown(f"[More Info]({mount[5]})")
+                            st.write("")
+                        
+                    if len(daessy_mounts) > 1:
+                        st.subheader("Other Compatible Daessy Mounts")
+                        for mount in daessy_mounts[1:]:
+                            st.write(f"**{mount[1]}**")
+                            st.write(mount[4])
+                            st.markdown(f"[More Info]({mount[5]})")
+                            st.write("")
+
+            # Cross-manufacturer combinations
+            if any(c[2].lower() == 'daessy' for c in recommendations["frame_clamps"]) and any(m[2].lower() == 'rehadapt' for m in recommendations["mounts"]):
+                st.markdown("<h2 style='font-size: 24px;'>Cross-Manufacturer Combinations</h2>", unsafe_allow_html=True)
+                with st.expander("Show/Hide Combinations"):
+                    st.write("**Note:** The following combinations require an adapter ring:")
+                        
+                    # Get device weight
+                    cursor = get_db_connection().cursor()
+                    cursor.execute("SELECT weight FROM aac_devices WHERE id = ?", (aac_device_id,))
+                    device_weight = cursor.fetchone()[0]
+                        
+                    # Get compatible Daessy clamps from the recommendations
+                    suitable_daessy_clamps = [c for c in recommendations["frame_clamps"] 
+                                            if c[2].lower() == 'daessy']
+                        
+                    suitable_rehadapt_mounts = [m for m in rehadapt_mounts if 
+                                                (device_weight > 2.6 and m[0] == 3) or  # Heavy devices: ID 3
+                                                (1.5 <= device_weight <= 2.5 and m[0] == 1) or  # Medium devices: ID 1
+                                                (device_weight < 1.5 and m[0] == 4)]  # Light devices: ID 4
+                        
+                    for clamp in suitable_daessy_clamps:
+                        for mount in suitable_rehadapt_mounts:
+                            if recommendations["adapter_ring"]:
+                                adapter = recommendations["adapter_ring"]
+                                st.write(f"**Daessy Clamp:** {clamp[1]} + **Rehadapt Mount:** {mount[1]}")
+                                st.write("**Required Adapter Ring:**")
+                                st.write(f"- {adapter[1]}")
+                                st.write(adapter[3])
+                                st.markdown(f"[More Info]({adapter[4]})")
+                                st.write("")
