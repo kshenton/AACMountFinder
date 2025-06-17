@@ -164,6 +164,40 @@ def get_floorstands_for_device(aac_device_id: int) -> Union[List[Tuple], str]:
         logging.error(f"Unexpected error in get_floorstands_for_device: {e}")
         return "An unexpected error occurred while getting floorstands."
 
+def get_tablemounts_for_device(aac_device_id: int) -> Union[List[Tuple], str]:
+    """Get suitable table mounts for an AAC device based on weight capacity"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # First get the device weight
+            cursor.execute("SELECT weight FROM aac_devices WHERE id = ?", (aac_device_id,))
+            device_result = cursor.fetchone()
+            
+            if not device_result:
+                return "Invalid AAC device selection."
+            
+            device_weight = device_result[0]
+            
+            # Get all table mounts that can support the device weight
+            # Structure: (id, name, manufacturer, description, url, max_weight, style)
+            cursor.execute("""
+                SELECT id, name, manufacturer, description, url, max_weight, style 
+                FROM tablemounts 
+                WHERE max_weight >= ? 
+                ORDER BY manufacturer, style, name
+            """, (device_weight,))
+            
+            tablemounts = cursor.fetchall()
+            return tablemounts
+            
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get table mounts for device: {e}")
+        return "Failed to retrieve table mounts due to a database error."
+    except Exception as e:
+        logging.error(f"Unexpected error in get_tablemounts_for_device: {e}")
+        return "An unexpected error occurred while getting table mounts."
+
 def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bool = False, left_hand_side: bool = False) -> Union[Dict, str]:
     """Get mounting recommendations for wheelchair and AAC device combination"""
     try:

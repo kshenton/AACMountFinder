@@ -5,6 +5,7 @@ from data import (
     get_aac_device_by_make_model, 
     get_recommendations,
     get_floorstands_for_device,
+    get_tablemounts_for_device,
     MountLogic,
     get_db_connection
 )
@@ -178,7 +179,7 @@ def display_mount_solutions(recommendations, aac_device_id):
                     st.write("")
 
 def show_landing_page():
-    """Display the landing page with two options"""
+    """Display the landing page with three options"""
     st.markdown("<h1 style='text-align: center;'>AAC Mount Finder</h1>", unsafe_allow_html=True)
     
     st.write("""
@@ -186,7 +187,7 @@ def show_landing_page():
     for your AAC device. Please choose the type of mounting solution you need:
     """)
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         if st.button("🦽 Wheelchair Mounts", use_container_width=True):
@@ -196,6 +197,11 @@ def show_landing_page():
     with col2:
         if st.button("🏢 Floor Stands", use_container_width=True):
             st.session_state.page = "floorstands"
+            st.rerun()
+    
+    with col3:
+        if st.button("📋 Table Mounts", use_container_width=True):
+            st.session_state.page = "tablemounts"
             st.rerun()
 
 def show_wheelchair_mounts():
@@ -368,10 +374,90 @@ def show_floorstands():
             # Display floorstands
             st.success(f"Found {len(floorstands)} suitable floor stand(s) for your device:")
             display_floorstands_by_manufacturer(floorstands)
-            
         except Exception as e:
             st.error(f"An error occurred while finding floor stands: {e}")
             logging.error(f"Floor stand finding failed: {e}")
+            
+def show_tablemounts():
+    """Display the table mounts page"""
+    st.markdown("<h1 style='text-align: center;'>Table Mount Finder</h1>", unsafe_allow_html=True)
+    
+    # Back button
+    if st.button("← Back to Main Menu"):
+        st.session_state.page = "landing"
+        st.rerun()
+
+    st.write("""
+    This tool will help you find suitable table mounting solutions for your AAC device.
+    """)
+
+    # Warning message
+    st.warning("""
+    ⚠️ Please note: This app is intended to be used as a guide, and the suggestions provided are based on general compatibility. The final solution may 
+    vary depending on factors such as:
+    - Table thickness and material
+    - Specific positioning requirements
+    - User needs and preferences
+    - Environmental considerations
+    - Desk/table stability requirements
+
+    Always consult with a qualified professional to confirm the most appropriate table mount solution for your specific needs.
+    """)
+
+    # Load AAC devices
+    try:
+        aac_devices = get_aac_devices()
+    except Exception as e:
+        st.error(f"Failed to load data from database: {e}")
+        logging.error(f"Data loading failed: {e}")
+        return
+
+    if not aac_devices:
+        st.error("No AAC devices found in database.")
+        return
+
+    # Device selection interface
+    makes = ["--Select make--"] + sorted(list(set(device[0] for device in aac_devices)))
+    selected_make = st.selectbox("Select AAC Device Make", makes)
+
+    selected_model = "--Select model--"
+    if selected_make != "--Select make--":
+        models = ["--Select model--"] + sorted(list(set(
+            device[1] for device in aac_devices if device[0] == selected_make
+        )))
+        selected_model = st.selectbox("Select AAC Device Model", models)
+
+    # Process selection
+    if st.button("Find Table Mounts"):
+        if selected_make == "--Select make--" or selected_model == "--Select model--":
+            st.warning("Please select both make and model.")
+            return
+
+        try:
+            aac_device_id = get_aac_device_by_make_model(selected_make, selected_model)
+            
+            if not aac_device_id:
+                st.error("Selected AAC device not found.")
+                return
+
+            # Get suitable table mounts
+            tablemounts = get_tablemounts_for_device(aac_device_id)
+
+            if isinstance(tablemounts, str):
+                st.error(tablemounts)
+                return
+
+            if not tablemounts:
+                st.warning("No suitable table mounts found for the selected device.")
+                return
+
+            # Display table mounts
+            st.success(f"Found {len(tablemounts)} suitable table mount(s) for your device:")
+            display_tablemounts_by_manufacturer_and_style(tablemounts)
+            
+        except Exception as e:
+            st.error(f"An error occurred while finding table mounts: {e}")
+            logging.error(f"Table mount finding failed: {e}")
 
 def main():
     """Main Streamlit application function"""
@@ -387,6 +473,8 @@ def main():
         show_wheelchair_mounts()
     elif st.session_state.page == "floorstands":
         show_floorstands()
+    elif st.session_state.page == "tablemounts":
+        show_tablemounts()
 
 if __name__ == "__main__":
     main()
