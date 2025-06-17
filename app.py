@@ -76,6 +76,38 @@ def display_floorstands_by_manufacturer(floorstands):
                 display_floorstand_info(floorstand)
                 st.write("---")  # Separator between floorstands
 
+def display_tablemount_info(tablemount):
+    """Display information for a single table mount"""
+    # Tablemount structure: (id, name, manufacturer, description, url, max_weight, style)
+    st.write(f"**Name:** {tablemount[1]}")
+    if len(tablemount) > 3 and tablemount[3]:
+        st.write(f"**Description:** {tablemount[3]}")
+    if len(tablemount) > 5 and tablemount[5]:
+        st.write(f"**Max Weight:** {tablemount[5]} kg")
+    if len(tablemount) > 6 and tablemount[6]:
+        st.write(f"**Style:** {tablemount[6]}")
+    if len(tablemount) > 4 and tablemount[4]:
+        st.markdown(f"[More Info]({tablemount[4]})")
+
+def display_tablemounts_by_manufacturer_and_style(tablemounts):
+    """Display table mounts organized by manufacturer and style"""
+    manufacturers = {}
+    for tablemount in tablemounts:
+        manufacturer = tablemount[2]
+        style = tablemount[6] if len(tablemount) > 6 else "Unknown Style"
+        key = (manufacturer, style)
+        if key not in manufacturers:
+            manufacturers[key] = []
+        manufacturers[key].append(tablemount)
+    
+    for (manufacturer, style), mounts in manufacturers.items():
+        st.markdown(f"<h2 style='font-size: 24px;'>{manufacturer} - {style}</h2>", unsafe_allow_html=True)
+        with st.expander(f"Show/Hide {manufacturer} {style} Table Mounts"):
+            for mount in mounts:
+                display_tablemount_info(mount)
+                st.write("---")
+
+
 def display_mount_solutions(recommendations, aac_device_id):
     """Display the mount solutions in organized sections"""
     
