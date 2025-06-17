@@ -4,6 +4,7 @@ from data import (
     get_aac_devices, 
     get_aac_device_by_make_model, 
     get_recommendations,
+    get_floorstands_for_device,
     MountLogic,
     get_db_connection
 )
@@ -41,6 +42,38 @@ def display_component_info(component, component_type="Component"):
             st.write(component[3])  # description
         if len(component) > 4 and component[4]:
             st.markdown(f"[More Info]({component[4]})")  # url
+
+def display_floorstand_info(floorstand):
+    """Helper function to display floorstand information"""
+    # Floorstand structure: (id, name, manufacturer, description, url, weight_capacity, max_height)
+    st.write(f"**Name:** {floorstand[1]}")
+    if len(floorstand) > 3 and floorstand[3]:
+        st.write(f"**Description:** {floorstand[3]}")
+    if len(floorstand) > 5 and floorstand[5]:
+        st.write(f"**Max Weight:** {floorstand[5]} kg")
+    if len(floorstand) > 6 and floorstand[6]:
+        st.write(f"**Max Height:** {floorstand[6]} mm")
+    if len(floorstand) > 4 and floorstand[4]:
+        st.markdown(f"[More Info]({floorstand[4]})")
+
+def display_floorstands_by_manufacturer(floorstands):
+    """Display floorstands organized by manufacturer"""
+    # Group floorstands by manufacturer
+    manufacturers = {}
+    for floorstand in floorstands:
+        manufacturer = floorstand[2]  # manufacturer is at index 2
+        if manufacturer not in manufacturers:
+            manufacturers[manufacturer] = []
+        manufacturers[manufacturer].append(floorstand)
+    
+    # Display each manufacturer's floorstands
+    for manufacturer, stands in manufacturers.items():
+        st.markdown(f"<h2 style='font-size: 24px;'>{manufacturer} Solutions</h2>", unsafe_allow_html=True)
+        
+        with st.expander(f"Show/Hide {manufacturer} Floorstands"):
+            for floorstand in stands:
+                display_floorstand_info(floorstand)
+                st.write("---")  # Separator between floorstands
 
 def display_mount_solutions(recommendations, aac_device_id):
     """Display the mount solutions in organized sections"""
@@ -144,14 +177,38 @@ def display_mount_solutions(recommendations, aac_device_id):
                     display_component_info(mount, "Mount")
                     st.write("")
 
-def main():
-    """Main Streamlit application function"""
-    
-    # App header
+def show_landing_page():
+    """Display the landing page with two options"""
     st.markdown("<h1 style='text-align: center;'>AAC Mount Finder</h1>", unsafe_allow_html=True)
-
+    
     st.write("""
     Welcome to the AAC Mount Finder! This tool will help you find compatible mounting solutions 
+    for your AAC device. Please choose the type of mounting solution you need:
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🦽 Wheelchair Mounts", use_container_width=True):
+            st.session_state.page = "wheelchair_mounts"
+            st.rerun()
+    
+    with col2:
+        if st.button("🏢 Floor Stands", use_container_width=True):
+            st.session_state.page = "floorstands"
+            st.rerun()
+
+def show_wheelchair_mounts():
+    """Display the wheelchair mounts page (existing functionality)"""
+    st.markdown("<h1 style='text-align: center;'>Wheelchair Mount Finder</h1>", unsafe_allow_html=True)
+    
+    # Back button
+    if st.button("← Back to Main Menu"):
+        st.session_state.page = "landing"
+        st.rerun()
+
+    st.write("""
+    This tool will help you find compatible mounting solutions 
     for your wheelchair and AAC device combination.
     """)
 
@@ -235,6 +292,101 @@ def main():
         except Exception as e:
             st.error(f"An error occurred while finding solutions: {e}")
             logging.error(f"Solution finding failed: {e}")
+
+def show_floorstands():
+    """Display the floorstands page"""
+    st.markdown("<h1 style='text-align: center;'>Floor Stand Finder</h1>", unsafe_allow_html=True)
+    
+    # Back button
+    if st.button("← Back to Main Menu"):
+        st.session_state.page = "landing"
+        st.rerun()
+
+    st.write("""
+    This tool will help you find suitable floor stand solutions for your AAC device.
+    """)
+
+    # Warning message
+    st.warning("""
+    ⚠️ Please note: This app is intended to be used as a guide, and the suggestions provided are based on general compatibility. The final solution may 
+    vary depending on factors such as:
+    - Specific positioning requirements
+    - User needs and preferences
+    - Environmental considerations
+    - Height and weight requirements
+
+    Always consult with a qualified professional to confirm the most appropriate floor stand solution for your specific needs.
+    """)
+
+    # Load AAC devices
+    try:
+        aac_devices = get_aac_devices()
+    except Exception as e:
+        st.error(f"Failed to load data from database: {e}")
+        logging.error(f"Data loading failed: {e}")
+        return
+
+    if not aac_devices:
+        st.error("No AAC devices found in database.")
+        return
+
+    # Device selection interface
+    makes = ["--Select make--"] + sorted(list(set(device[0] for device in aac_devices)))
+    selected_make = st.selectbox("Select AAC Device Make", makes)
+
+    selected_model = "--Select model--"
+    if selected_make != "--Select make--":
+        models = ["--Select model--"] + sorted(list(set(
+            device[1] for device in aac_devices if device[0] == selected_make
+        )))
+        selected_model = st.selectbox("Select AAC Device Model", models)
+
+    # Process selection
+    if st.button("Find Floor Stands"):
+        if selected_make == "--Select make--" or selected_model == "--Select model--":
+            st.warning("Please select both make and model.")
+            return
+
+        try:
+            aac_device_id = get_aac_device_by_make_model(selected_make, selected_model)
+            
+            if not aac_device_id:
+                st.error("Selected AAC device not found.")
+                return
+
+            # Get suitable floorstands
+            floorstands = get_floorstands_for_device(aac_device_id)
+
+            if isinstance(floorstands, str):
+                st.error(floorstands)
+                return
+
+            if not floorstands:
+                st.warning("No suitable floor stands found for the selected device.")
+                return
+
+            # Display floorstands
+            st.success(f"Found {len(floorstands)} suitable floor stand(s) for your device:")
+            display_floorstands_by_manufacturer(floorstands)
+            
+        except Exception as e:
+            st.error(f"An error occurred while finding floor stands: {e}")
+            logging.error(f"Floor stand finding failed: {e}")
+
+def main():
+    """Main Streamlit application function"""
+    
+    # Initialize session state
+    if 'page' not in st.session_state:
+        st.session_state.page = "landing"
+    
+    # Display appropriate page based on session state
+    if st.session_state.page == "landing":
+        show_landing_page()
+    elif st.session_state.page == "wheelchair_mounts":
+        show_wheelchair_mounts()
+    elif st.session_state.page == "floorstands":
+        show_floorstands()
 
 if __name__ == "__main__":
     main()

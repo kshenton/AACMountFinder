@@ -130,6 +130,40 @@ def get_aac_device_by_make_model(make: str, model: str) -> Optional[int]:
         logging.error(f"Failed to fetch AAC device by make/model: {e}")
         return None
 
+def get_floorstands_for_device(aac_device_id: int) -> Union[List[Tuple], str]:
+    """Get suitable floorstands for an AAC device based on weight capacity"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # First get the device weight
+            cursor.execute("SELECT weight FROM aac_devices WHERE id = ?", (aac_device_id,))
+            device_result = cursor.fetchone()
+            
+            if not device_result:
+                return "Invalid AAC device selection."
+            
+            device_weight = device_result[0]
+            
+            # Get all floorstands that can support the device weight
+            # Structure: (id, name, manufacturer, description, url, weight_capacity, max_height)
+            cursor.execute("""
+                SELECT id, name, manufacturer, description, url, weight_capacity, max_height 
+                FROM floorstands 
+                WHERE weight_capacity >= ? 
+                ORDER BY manufacturer, name
+            """, (device_weight,))
+            
+            floorstands = cursor.fetchall()
+            return floorstands
+            
+    except sqlite3.Error as e:
+        logging.error(f"Failed to get floorstands for device: {e}")
+        return "Failed to retrieve floorstands due to a database error."
+    except Exception as e:
+        logging.error(f"Unexpected error in get_floorstands_for_device: {e}")
+        return "An unexpected error occurred while getting floorstands."
+
 def get_recommendations(wheelchair_id: int, aac_device_id: int, uses_eyegaze: bool = False, left_hand_side: bool = False) -> Union[Dict, str]:
     """Get mounting recommendations for wheelchair and AAC device combination"""
     try:
